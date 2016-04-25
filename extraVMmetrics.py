@@ -80,9 +80,20 @@ class ExtraVMmetrics:
             #print  docker_pids
 
             logger.info("Collecting Docker Counters for %s", docker_name)
-            counters_metric = CountersMetricsDocker(self.counters_directory, self.counters_interval, self.counters_list, self.mconf, self.gconf, docker_pids, docker_name)
-            #print "counters_metric.collectCountersMetrics"
-            counters_metric.collectCountersMetrics()
+            if self.counters_list != "" and self.raw_counters_list != "":
+                all_counter_list = self.counters_list + "," + self.raw_counters_list
+            elif self.counters_list != "":
+                all_counter_list = self.counters_list
+            elif self.raw_counters_list != "":
+                all_counter_list = self.raw_counters_list
+            else:
+                logger.error("No counter list provided!")
+                return false
+            
+            if len(all_counter_list) > 0:
+                counters_metric = CountersMetricsDocker(self.counters_directory, self.counters_interval, all_counter_list, self.mconf, self.gconf, docker_pids, docker_name)
+                #print "counters_metric.collectCountersMetrics"
+                counters_metric.collectCountersMetrics()
 
         sleep(check_vm_interval)
 
