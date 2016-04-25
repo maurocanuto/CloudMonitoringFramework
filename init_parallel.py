@@ -156,6 +156,9 @@ if __name__ == '__main__':
 
       # get performance counters of the vm pid - yes/no
       vm_counters = sconf['vm_counters'].strip()
+      
+      # get performance counters of docker
+      docker_counters = sconf['docker_counters'].strip()
 
       # get performance raw counters of the vm pid - yes/no
       vm_raw_counters = sconf['vm_raw_counters'].strip()
@@ -243,7 +246,6 @@ if __name__ == '__main__':
               extra_vm = ExtraVMmetrics(vm_file_path, vm_metrics_interval, mconf, gconf, counters_directory, counters_interval, counters_list, None, False, True, False)
               thread_VM = Thread(target = extra_vm.collectVMmetrics)
               thread_VM.start()
-          #
 
         elif vm_metrics == 'yes': 
               if vm_raw_counters == 'yes':
@@ -265,7 +267,14 @@ if __name__ == '__main__':
               extra_vm = ExtraVMmetrics(vm_file_path, vm_metrics_interval, mconf, gconf, counters_directory, counters_interval, None, raw_counters_list, False, True, True)
               thread_VM = Thread(target = extra_vm.collectVMmetrics)
               thread_VM.start()
-
+        
+        #Docker counters (equivalent to VM counters)
+        if docker_counters == 'yes':
+            logger.info("Start collecting Docker Counters metrics")
+            extra_vm = ExtraVMmetrics(vm_file_path, vm_metrics_interval, mconf, gconf, counters_directory, counters_interval, counters_list, raw_counters_list, False, False, False)
+            thread_VM = Thread(target = extra_vm.collectDockerMetrics)
+            thread_VM.start()
+        
         # Standard counters metrics
         if host_counters == 'yes' and counters_list:
           logger.info("Start collecting Host Counters metrics")

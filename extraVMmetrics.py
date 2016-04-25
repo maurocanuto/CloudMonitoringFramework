@@ -8,10 +8,12 @@ import os
 import gmetric
 from domain_info import domainsVM, VMobject
 from countersMetrics import CountersMetrics
+from countersMetricsDocker import CountersMetricsDocker
 from rawCountersMetrics import RawCountersMetrics
 from threading import Thread
 from gmetric import GmetricConf
 from logging import handlers
+from docker import Client
 import threading
 import guestfs
 import errno
@@ -19,6 +21,7 @@ import gmetric
 import Queue
 import time
 import logging
+import subprocess
 
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.INFO)
@@ -52,17 +55,43 @@ class ExtraVMmetrics:
     self.get_vm_counters = get_vm_counters
     self.get_vm_raw_counters = get_vm_raw_counters
     self.counters_directory = counters_directory
-
     self._stopevent = threading.Event()
-
+    self.cli = None
 
   def stopThreads(self):
     logger.info("stopping threads...")
     self._stopevent.set()
+  
+  def collectDockerMetrics(self):
+    try:
+      while(True):
+        
+        if self.cli is None:
+            self.cli = Client(base_url='unix://var/run/docker.sock')
+          
+        for container in self.cli.containers(latest=True):
+            info = self.cli.inspect_container(container['Id'])
+            
+            docker_name = info['Config']['Hostname']
+            container_pid = str(info['State']['Pid'])
+            
+            container_processes = subprocess.check_output('pgrep -P %s' % container_pid, shell=True).strip().split("\n")
+            docker_pids = [container_pid] + container_processes
+            #print  docker_pids
 
+            logger.info("Collecting Docker Counters for %s", docker_name)
+            counters_metric = CountersMetricsDocker(self.counters_directory, self.counters_interval, self.counters_list, self.mconf, self.gconf, docker_pids, docker_name)
+            #print "counters_metric.collectCountersMetrics"
+            counters_metric.collectCountersMetrics()
 
+        sleep(check_vm_interval)
+
+    except (KeyboardInterrupt, SystemExit):
+      self.stopThreads()
+      self.exit = True
+      sys.exit(0)
+  
   def collectVMmetrics(self):
-
     domains = domainsVM()
 
     try:
@@ -81,7 +110,6 @@ class ExtraVMmetrics:
             if self.get_vm_metrics is True:
               # for each NEW VM start a thread for collecting and sending VM metrics
               logger.info("New VM detected: starting thread for %s", vm_name)
-          
               thread_VMmetric = Thread(target = self.readVMmetrics, args=(vm_name, ))
               thread_VMmetric.daemon = True
               thread_VMmetric.start()
@@ -121,10 +149,6 @@ class ExtraVMmetrics:
       self.stopThreads()
       self.exit = True
       sys.exit(0)
-
-
-
-
 
   def readVMmetrics(self, vm_name): 
     gmetric_obj = gmetric.Gmetric(self.gconf.host, self.gconf.port, self.gconf.protocol)

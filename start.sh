@@ -4,4 +4,4 @@ if [ "$(id -u)" != "0" ]; then
    exit 1
 fi
 
-nohup ./init_parallel.py start  >/dev/null 2>&1 &  # doesn't create nohup.out
+nohup ./init_parallel.py start 2>&1 &
